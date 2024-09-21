@@ -4,12 +4,18 @@
 # dumped via AssetRipper, and copies/extracts all data into 
 # data/extracted_data/official_beatsaber.
 
-# make sure we have yq
+# make sure we have yq and jq
 type yq
 if [ $? -ne 0 ]; then
     echo "yq not found, it must be in \$PATH. Exiting..."
     exit
 fi
+type jq
+if [ $? -ne 0 ]; then
+    echo "jq not found, it must be in \$PATH. Exiting..."
+    exit
+fi
+
 
 ASSETSDIR="/home/dfwarden/home-win/Desktop/test/ExportedProject/Assets"
 OUT_DIR="$(dirname $( realpath ${BASH_SOURCE[0]} ))/../../../data/extracted_data/official_beatsaber"
@@ -28,8 +34,9 @@ for song_yaml in `ls $ASSETSDIR/MonoBehaviour/*BeatmapLevelData.asset | grep -vE
     # create/touch the folder for this song
     mkdir -p "${OUT_DIR}/${song_title}"
 
-    # write out the song beatmap info json
+    # write out the song beatmap info json and BPM to info.dat
     yq . "${song_yaml:0:-10}.asset" >"${OUT_DIR}/${song_title}/${song_title}.info.json"
+    yq '{_beatsPerMinute: .MonoBehaviour._beatsPerMinute}' "${song_yaml:0:-10}.asset" >"${OUT_DIR}/${song_title}/info.dat"
 
     # find the guid of the ogg of this song in .MonoBehaviour._audioClip.guid,
     # locate it in ASSETDIR/AudioClip, copy and rename it.

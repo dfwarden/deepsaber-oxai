@@ -13,7 +13,7 @@ for (const v4File of v4Files.slice(0)) {
     // skip validation checks - some official songs are not technically v2 compatible
     // see https://github.com/KivalEvan/BeatSaber-JSMap/blob/f399d7a33ca356b0cf0102a1db082188a27be6eb/src/write/_main.ts
     bsmap.writeDifficultyFileSync(data, 2, {
-        filename: v4File.slice(0, -3),
+        filename: `${v4File.slice(0, -3)}.v2`,
         save: {
             validate: {
                 enabled: false,
