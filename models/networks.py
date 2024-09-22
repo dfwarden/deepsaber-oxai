@@ -531,14 +531,17 @@ class DilatedQueue:
 
 
 class ConstantPad1d(Function):
+    '''
     def __init__(self, target_size, dimension=0, value=0, pad_start=False):
         super(ConstantPad1d, self).__init__()
         self.target_size = target_size
         self.dimension = dimension
         self.value = value
         self.pad_start = pad_start
+'''
 
-    def forward(self, input):
+    @staticmethod
+    def forward(ctx, input):
         self.num_pad = self.target_size - input.size(self.dimension)
         assert self.num_pad >= 0, 'target size has to be greater than input size'
 
@@ -558,7 +561,8 @@ class ConstantPad1d(Function):
         c_output.copy_(input)
         return output
 
-    def backward(self, grad_output):
+    @staticmethod
+    def backward(ctx, grad_output):
         grad_input = grad_output.new(*self.input_size).zero_()
         cg_output = grad_output
 
@@ -577,7 +581,19 @@ def constant_pad_1d(input,
                     dimension=0,
                     value=0,
                     pad_start=False):
-    return ConstantPad1d(target_size, dimension, value, pad_start)(input)
+    # warden: https://pytorch.org/docs/stable/autograd.html#torch.autograd.Function
+    # really guessing in the dark here
+    # there's also a torch.nn.ConstantPad1d, maybe alternative?
+    #print(f'wardentest: in constant_pad_1d with target size {target_size}, dimension {dimension}, value {value}, and pad_start {pad_start}')
+    input_size = input.size()
+    num_pad = target_size - input.size(dimension)
+    #print(f'wardentest: input size is {input_size}, num_pad is {num_pad}')
+    # need to understand narrow(): https://pytorch.org/docs/stable/generated/torch.narrow.html#torch.narrow
+    assert num_pad >= 0, 'target size has to be greater than input size'
+    padding = (num_pad, 0) if pad_start else num_pad
+    result = nn.ConstantPad1d(padding, value)(input)
+    # it seems like pad_start is used to determine if we pad left or right?
+    return result
 
 
 def quantize_data(data, classes):
@@ -638,6 +654,7 @@ def init_net(net, init_type='normal', init_gain=0.02, gpu_ids=tuple()):
         assert(torch.cuda.is_available())
         net.cuda(device=gpu_ids[0])
         net = torch.nn.DataParallel(net, gpu_ids)
+        print(f'wardentest: init_net with gpu_ids {gpu_ids}')
     init_weights(net, init_type, gain=init_gain)
     return net
 

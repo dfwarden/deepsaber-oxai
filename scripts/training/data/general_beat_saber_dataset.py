@@ -26,7 +26,7 @@ unique_states = pickle.load(open(DATA_DIR+"/statespace/sorted_states.pkl","rb"))
 # feature_name = "chroma"
 # feature_size = 24
 # number_reduced_states = 2000
-from .level_processing_functions import get_reduced_tensors_from_level, get_full_tensors_from_level, get_binary_reduced_tensors_from_level_faster, get_binary_classes_reduced_tensors_from_level
+from .level_processing_functions import get_reduced_tensors_from_level, get_full_tensors_from_level, get_binary_reduced_tensors_from_level_fast, get_binary_reduced_tensors_from_level_faster, get_binary_classes_reduced_tensors_from_level
 from scripts.feature_extraction.feature_extraction import extract_features_hybrid, extract_features_mel,extract_features_hybrid_beat_synced
 import models.constants as constants
 
@@ -47,6 +47,9 @@ class GeneralBeatSaberDataset(BaseDataset):
         self.feature_files = {}
         # self.blocks_reduced_files = []
         self.blocks_reduced_classes_files = []
+        # warden: playing with caching
+        self.blocks_targets = {}
+        self.blocks_windows = {}
 
         # cleaning up data, from songs which are too short
         for i, path in enumerate(candidate_audio_files):
@@ -88,6 +91,7 @@ class GeneralBeatSaberDataset(BaseDataset):
                     self.level_jsons.append(level)
                     self.info_jsons.append(info_file)
                     self.audio_files.append(path)
+                    self.blocks_windows.append()
                 except:
                     continue
 
@@ -126,11 +130,14 @@ class GeneralBeatSaberDataset(BaseDataset):
     def name(self):
         return "GeneralBeatSaberDataset"
 
+    # warden: this seems like the meat of the pytorch Dataset
     def __getitem__(self, item):
         song_file_path = self.audio_files[item].__str__()
 
+        print('start json loading')
         level = json.load(open(self.level_jsons[item].__str__(), 'r'))
         info = json.load(open(self.info_jsons[item].__str__(), 'r'))
+        print('end json loading')
 
         bpm = info['_beatsPerMinute']
         features_rate = bpm*self.opt.beat_subdivision
@@ -151,9 +158,11 @@ class GeneralBeatSaberDataset(BaseDataset):
         # duration of one time step in samples:
         num_samples_per_feature = hop
         features = np.load(self.feature_files[song_file_path])
+        print('end loading features variable')
 
         # blocks_reduced, blocks_reduced_classes = np.load(self.blocks_reduced_files[item].__str__()), np.load(self.blocks_reduced_classes_files[item].__str__())
         blocks_reduced_classes = np.load(self.blocks_reduced_classes_files[item].__str__())
+        print('end loading blocks_reduced_classes')
 
         # for short
         y = features #dimensions of y are: features x time OR features x window_sizes x time
@@ -162,6 +171,7 @@ class GeneralBeatSaberDataset(BaseDataset):
         receptive_field = self.receptive_field
         # we pad the song features with zeros to imitate during training what happens during generation
         # this is helpful for models that have a big receptive field like wavent, but we also use it with a receptive_field=1 for LSTM and Transformer
+        # warden: candidate for the padding function I had to figure out elsewhere?
         if len(y.shape) == 2: # one feature dimension in y
             y = np.concatenate((np.zeros((y.shape[0],receptive_field+self.opt.time_shifts//2)),y),1)
             # we also pad at the end to allow generation to be of the same length of song, by padding an amount corresponding to time_shifts
@@ -170,6 +180,7 @@ class GeneralBeatSaberDataset(BaseDataset):
             y = np.concatenate((np.zeros((y.shape[0],y.shape[1],receptive_field+self.opt.time_shifts//2)),y),2)
             # we also pad at the end to allow generation to be of the same length of song, by padding an amount corresponding to time_shifts
             y = np.concatenate((y,np.zeros((y.shape[0],y.shape[1],self.opt.time_shifts//2))),2)
+        print('done padding features with zeros')
 
         ## WINDOWS ##
         # sample indices at which we will get opt.num_windows windows of the song to feed as inputs
@@ -196,6 +207,7 @@ class GeneralBeatSaberDataset(BaseDataset):
             input_length = sequence_length
         else:
             raise Exception("Can't have time_shifts with setting num_windows=0 (which means take the whole sequence)")
+        print('done randomizing windows')
 
         ## CONSTRUCT TENSOR OF INPUT SOUND FEATURES ##
         if self.opt.time_shifts >= 1: #if we are including context
@@ -207,7 +219,8 @@ class GeneralBeatSaberDataset(BaseDataset):
                     input_windows = [y[:,i+ii:i+ii+input_length] for i in indices]
                 elif len(y.shape) == 3:
                     input_windows = [y[:,:,i+ii:i+ii+input_length] for i in indices]
-                input_windows = torch.tensor(input_windows)
+                # warden: numpy barked at me to do the following
+                input_windows = torch.tensor(np.array(input_windows))
                 input_windows = (input_windows - input_windows.mean())/torch.abs(input_windows).max()
                 # input_windows = (input_windows.permute(3,0,1,2) - input_windows.mean(-1)).permute(1,2,3,0)
                 input_windowss.append(input_windows.float())
@@ -221,11 +234,24 @@ class GeneralBeatSaberDataset(BaseDataset):
             # input_windows = (input_windows.permute(3,0,1,2) - input_windows.mean(-1)).permute(1,2,3,0)
             input_windowss = [input_windows]
         # print(len(y.shape))
+        print('done sound features tensor')
 
+        print('starting block tensors')
         ## BLOCKS TENSORS ##
         # print(input_length, output_length, time_offset)
         if self.opt.reduced_state:
-            blocks_windows, blocks_targets = get_reduced_tensors_from_level(notes,indices,sequence_length,self.opt.num_classes,bpm,sr,num_samples_per_feature,blocks_receptive_field,blocks_input_length, output_length,blocks_time_offset)
+            # warden: playing with caching
+            try:
+                print(f'looking for {item} in {sorted(self.blocks_windows.keys())}')
+                blocks_windows = self.blocks_windows[item]
+                blocks_targets = self.blocks_targets[item]
+            except KeyError as e:
+                (blocks_windows, blocks_targets) = get_reduced_tensors_from_level(notes,indices,sequence_length,self.opt.num_classes,bpm,sr,num_samples_per_feature,blocks_receptive_field,blocks_input_length, output_length,blocks_time_offset)
+                self.blocks_windows[item] = blocks_windows
+                self.blocks_targets[item] = blocks_targets
+            else:
+                print('used cached windows and targets for i',i)
+            #blocks_targets = get_binary_reduced_tensors_from_level_faster(blocks_reduced_classes,indices,sequence_length,self.opt.num_classes,bpm,sr,num_samples_per_feature,blocks_receptive_field,blocks_input_length, output_length,blocks_time_offset)
             # print("blocks_targets",blocks_targets.shape)
             # print("blocks_windows",blocks_windows.shape)
             # print("input_windowss",input_windowss[0].shape)
@@ -235,6 +261,7 @@ class GeneralBeatSaberDataset(BaseDataset):
             blocks_targets = get_binary_reduced_tensors_from_level_faster(blocks_reduced_classes,indices,sequence_length,1+constants.NUM_SPECIAL_STATES,bpm,sr,num_samples_per_feature,blocks_receptive_field,blocks_input_length, output_length,blocks_time_offset)
         else: #not tested
             blocks_windows, blocks_targets = get_full_tensors_from_level(notes,indices,sequence_length,self.opt.num_classes,self.opt.output_channels,bpm,sr,num_samples_per_feature,receptive_field,input_length)
+        print('done blocks tensors')
 
         if self.opt.concat_outputs: #for autoregressive models. If we want to concatenate the outputs to the inputs too.
             if self.opt.flatten_context: #if we want to flatten the feature vectors given as context via time-shifts

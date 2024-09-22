@@ -76,11 +76,12 @@ def get_reduced_tensors_from_level(notes, indices, sequence_length, num_classes,
                 blocks_reduced_classes[i, 0] = constants.EMPTY_STATE
 
     # get the block features corresponding to the windows
-    block_reduced_targets_windows = [blocks_reduced_classes[
+    # warden: numpy barked at me to do this
+    block_reduced_targets_windows = np.array([blocks_reduced_classes[
                                      i + time_offset + receptive_field - 1:i + time_offset + receptive_field - 1 + output_length,
-                                     :] for i in indices]
+                                     :] for i in indices])
     block_reduced_targets_windows = torch.tensor(block_reduced_targets_windows, dtype=torch.long)
-    blocks_reduced_windows = [blocks_reduced[i:i + input_length, :] for i in indices]
+    blocks_reduced_windows = np.array([blocks_reduced[i:i + input_length, :] for i in indices])
 
     blocks_reduced_windows = torch.tensor(blocks_reduced_windows)
     ### TODO: I think the padding below is only for wavenet model :PPP
@@ -197,11 +198,11 @@ def get_raw_binary_classes_reduced_tensors_from_level(notes, sequence_length, nu
 def get_binary_reduced_tensors_from_level_fast(blocks_reduced, blocks_reduced_classes, indices, sequence_length, num_classes, bpm, sr, num_samples_per_feature,
                                    receptive_field, input_length, output_length, time_offset):
     # get the block features corresponding to the windows
-    block_reduced_targets_windows = [blocks_reduced_classes[
+    block_reduced_targets_windows = np.array([blocks_reduced_classes[
                                      i + time_offset + receptive_field - 1:i + time_offset + receptive_field - 1 + output_length,
-                                     :] for i in indices]
+                                     :] for i in indices])
     block_reduced_targets_windows = torch.tensor(block_reduced_targets_windows, dtype=torch.long)
-    blocks_reduced_windows = [blocks_reduced[i:i + input_length, :] for i in indices]
+    blocks_reduced_windows = np.array([blocks_reduced[i:i + input_length, :] for i in indices])
 
     blocks_reduced_windows = torch.tensor(blocks_reduced_windows)
     # blocks_reduced_windows_pad = torch.zeros(blocks_reduced_windows.shape)
@@ -215,9 +216,9 @@ def get_binary_reduced_tensors_from_level_fast(blocks_reduced, blocks_reduced_cl
 def get_binary_reduced_tensors_from_level_faster(blocks_reduced_classes, indices, sequence_length, num_classes, bpm, sr, num_samples_per_feature,
                                    receptive_field, input_length, output_length, time_offset):
     # get the block features corresponding to the windows
-    block_reduced_targets_windows = [blocks_reduced_classes[
+    block_reduced_targets_windows = np.array([blocks_reduced_classes[
                                      i + time_offset + receptive_field - 1:i + time_offset + receptive_field - 1 + output_length,
-                                     :] for i in indices]
+                                     :] for i in indices])
     block_reduced_targets_windows = torch.tensor(block_reduced_targets_windows, dtype=torch.long)
     return block_reduced_targets_windows
 
@@ -270,9 +271,9 @@ def get_binary_classes_reduced_tensors_from_level(notes, indices, sequence_lengt
                 blocks_reduced_classes[i, 0] = constants.EMPTY_STATE
 
     # get the block features corresponding to the windows
-    block_reduced_targets_windows = [blocks_reduced_classes[
+    block_reduced_targets_windows = np.array([blocks_reduced_classes[
                                      i + time_offset + receptive_field - 1:i + time_offset + receptive_field - 1 + output_length,
-                                     :] for i in indices]
+                                     :] for i in indices])
     block_reduced_targets_windows = torch.tensor(block_reduced_targets_windows, dtype=torch.long)
 
     return block_reduced_targets_windows
@@ -312,10 +313,10 @@ def get_full_tensors_from_level(notes, indices, l, num_classes, output_channels,
         blocks_manyhot[sample_index, note["_lineLayer"] * 4 + note["_lineIndex"], note_representation] = 1.0
 
     # get the block features corresponding to the windows
-    block_windows = [blocks[i + receptive_field:i + input_length + 1, :] for i in indices]
+    block_windows = np.array([blocks[i + receptive_field:i + input_length + 1, :] for i in indices])
     block_windows = torch.tensor(block_windows, dtype=torch.long)
 
-    blocks_manyhot_windows = [blocks_manyhot[i:i + input_length, :, :] for i in indices]
+    blocks_manyhot_windows = np.array([blocks_manyhot[i:i + input_length, :, :] for i in indices])
     blocks_manyhot_windows = torch.tensor(blocks_manyhot_windows)
     # this is because the input features have dimensions (num_windows,time_steps,num_features)
     blocks_manyhot_windows = blocks_manyhot_windows.permute(0, 2, 3, 1)

@@ -113,6 +113,7 @@ class StageTwoDataset(BaseDataset):
 
     def __getitem__(self, item):
         song_file_path = self.audio_files[item].__str__()
+        #print(f'wardentest: working on {song_file_path}')
 
         level = json.load(open(self.level_jsons[item].__str__(), 'r'))
         info = json.load(open(self.info_jsons[item].__str__(), 'r'))
@@ -146,7 +147,7 @@ class StageTwoDataset(BaseDataset):
 
         ## BLOCKS TENSORS ##
         one_hot_states, states, delta_forward, delta_backward, indices = get_block_sequence_with_deltas(self.level_jsons[item].__str__(),sequence_length,bpm,step_size, top_k=2000,states=unique_states,one_hot=True)
-        # print(indices.shape,states.shape,one_hot_states.shape,delta_forward.shape,delta_backward.shape)
+        print(indices.shape,states.shape,one_hot_states.shape,delta_forward.shape,delta_backward.shape)
         truncated_sequence_length = min(len(states),self.opt.max_token_seq_len)
         states = states[:truncated_sequence_length]
         indices = indices[:truncated_sequence_length]
@@ -163,7 +164,7 @@ class StageTwoDataset(BaseDataset):
         # print(y.shape)
         input_windows = [y]
 
-        song_sequence = torch.tensor(input_windows)
+        song_sequence = torch.tensor(np.array(input_windows))
         song_sequence = (song_sequence - song_sequence.mean())/torch.abs(song_sequence).max().float()
 
         ## vv if we fed deltas as decoder transformer input :P

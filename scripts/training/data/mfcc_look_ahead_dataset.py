@@ -3,7 +3,7 @@ from itertools import tee
 import numpy as np
 import torch
 import librosa
-from base.data.base_dataset import BaseDataset
+from .base_dataset import BaseDataset
 import json
 from math import floor, ceil
 import pickle
@@ -18,14 +18,14 @@ class MfccLookAheadDataset(BaseDataset):
         if not data_path.is_dir():
             raise ValueError('Invalid directory: '+opt.data_dir)
         # self.audio_files = sorted(data_path.glob('**/*.ogg'), key=lambda path: path.parent.__str__())
-        candidate_audio_files = sorted(data_path.glob('**/*.ogg'), key=lambda path: path.parent.__str__())
+        candidate_audio_files = sorted(data_path.glob('**/*.egg'), key=lambda path: path.parent.__str__())
         self.level_jsons = []
         self.audio_files = []
         self.mfcc_features = {}
         for i, path in enumerate(candidate_audio_files):
             #print(path)
             try:
-                level = list(path.parent.glob('./'+self.opt.level_diff+'.json'))[0]
+                level = list(path.parent.glob('./'+self.opt.level_diff+'.dat'))[0]
                 self.level_jsons.append(level)
                 self.audio_files.append(path)
             except IndexError:

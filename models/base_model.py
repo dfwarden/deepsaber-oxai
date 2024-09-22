@@ -24,7 +24,8 @@ class BaseModel:
         self.opt = opt
         self.gpu_ids = opt.gpu_ids
         self.is_train = opt.is_train
-        self.device = torch.device('cuda:{}'.format(self.gpu_ids[0])) if self.gpu_ids else torch.device('cpu')
+        #self.device = torch.device('cuda:{}'.format(self.gpu_ids[0])) if self.gpu_ids else torch.device('cpu')
+        self.device = torch.device('cuda:{}'.format(self.gpu_ids[0])) if self.gpu_ids else None
         self.save_dir = os.path.join(opt.checkpoints_dir, opt.experiment_name)
         self.loss_names = []
         self.metric_names = []
@@ -56,7 +57,9 @@ class BaseModel:
     def set_input(self, data):
         self.input = data['input']
         self.target = data['target']
-        if self.opt.gpu_ids and (self.input.device.type == 'cpu' or self.target.device.type == 'cpu'):
+        # warden: wtf is this? doesn't seem right, but maybe it is?
+        #if self.opt.gpu_ids and (self.input.device.type == 'cpu' or self.target.device.type == 'cpu'):
+        if self.opt.gpu_ids:
             self.input = self.input.cuda()
             self.target = self.target.cuda()
 

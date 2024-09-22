@@ -47,20 +47,25 @@ if __name__ == '__main__':
         iter_data_time = time.time()
         epoch_iter = 0
 
+        print('starting enumerate(train_dataloader)')
         for i, data in enumerate(train_dataloader):
+            print('made it to member ',i,'in train_dataloader')
             iter_start_time = time.time()
             if total_steps % opt.print_freq == 0:
                 t_data = iter_start_time - iter_data_time
             total_steps += opt.batch_size
             epoch_iter += opt.batch_size
+            print('calling set_input')
             model.set_input(data)
+            print('done set_input')
             if opt.model == "adv_wavenet" and random.randint(1,opt.frequency_gen_updates) == opt.frequency_gen_updates:
                 #I'm doing this probabilistically because I'm not sure if train_dataloader reshuffles the data between epochs
                 #print("Optimizing generator")
                 model.optimize_parameters(optimize_generator=True)
             else:
-                #print("Optimizing discriminator")
+                print("Optimizing discriminator",i)
                 model.optimize_parameters()
+                print("Optimizing discriminator",i,"- done")
             if total_steps % opt.display_freq == 0 or total_steps % opt.print_freq == 0:
                 model.evaluate_parameters()
 
@@ -68,6 +73,7 @@ if __name__ == '__main__':
                 save_result = total_steps % opt.update_html_freq == 0
 
             if total_steps % opt.print_freq == 0:
+                print("hit frequency", opt.print_freq)
                 losses = model.get_current_losses()
                 print(losses)
                 metrics = model.get_current_metrics()

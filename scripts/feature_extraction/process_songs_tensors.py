@@ -76,7 +76,7 @@ for i in tasks:
         continue
 
     if replace_existing or not os.path.isfile(blocks_reduced_classes_file):# or not os.path.isfile(blocks_reduced_file):
-        print("creating feature file",i)
+        print("creating feature file",i, "for level",level)
         # get level
         level = json.load(open(level, 'r'))
         notes = level["_notes"]

@@ -112,8 +112,14 @@ def meta_collate_fn(pad_batches, model):
 from torch.utils.data.dataloader import default_collate
 def create_dataloader(dataset):
     is_val = dataset.opt.phase == "val"
+    # warden: see https://pytorch.org/docs/stable/data.html#torch.utils.data.DataLoader
     return DataLoader(dataset,
                       batch_size=dataset.opt.batch_size if not is_val else dataset.opt.val_batch_size,
                       shuffle=not is_val,
                       collate_fn=meta_collate_fn(dataset.opt.pad_batches,dataset.opt.model),
-                      num_workers=dataset.opt.workers)
+                      num_workers=dataset.opt.workers,
+                      # warden: experiments below
+                      #pin_memory=True,
+                      #persistent_workers=True,
+
+                    )
